@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.3-labs
+
 FROM nixpkgs/nix:nixos-23.11
 
 ENV PATH=/root/.nix-profile/bin:/usr/bin:/bin
@@ -16,27 +18,29 @@ EOF
 # Prepopulate the container's nix store with the build dependencies for the main
 # branch and the most recent three tags
 RUN <<EOF
+    : "${BRANCH:=main}"
     cd /src
-    for tag in main $(git tag -l --sort=committerdate | tail -n 3); do
+    for tag in $BRANCH $(git tag -l --sort=committerdate | tail -n 3); do
       git checkout -q --detach $tag
       nix-shell --run true -A zmk ./default.nix
     done
 EOF
 
-COPY --chmod=755 <<EOF /bin/entrypoint.sh
+COPY --chmod=755 <<-"EOF" /bin/entrypoint.sh
 #!/usr/bin/env bash
+    set -x
     set -euo pipefail
-    : "\${BRANCH:=main}"
+    : "${BRANCH:=main}"
 
-    echo "Checking out \$BRANCH from moergo-sc/zmk" >&2
+    echo "Checking out $BRANCH from moergo-sc/zmk" >&2
     cd /src
     git fetch origin
-    git checkout -q --detach "\$BRANCH"
+    git checkout -q --detach "$BRANCH"
 
     echo 'Building Glove80 firmware' >&2
     cd /config
     nix-build ./config --arg firmware 'import /src/default.nix {}' -j2 -o /tmp/combined --show-trace
-    install -o "\$UID" -g "\$GID" /tmp/combined/glove80.uf2 ./glove80.uf2
+    install -o "$UID" -g "$GID" /tmp/combined/glove80.uf2 ./glove80-"$BRANCH"-$(date +%s).uf2
 EOF
 
 ENTRYPOINT ["/bin/entrypoint.sh"]

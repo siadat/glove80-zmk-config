@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: moergo-sc/zmk
-          ref: main
+          ref: v24.08-beta.1
           path: src
       - uses: cachix/install-nix-action@v25
         with:
